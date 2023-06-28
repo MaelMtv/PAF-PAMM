@@ -8,7 +8,7 @@ image = cv2.imread("test1.jpg",1)
 gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 #image = cv2.merge((gray_image,gray_image,gray_image)) #comment to keep a colored image
 
-def histogram_gray(img): #computes the histogram of a grayscale image
+def histogram_gray(img): #computes the histogram and the cumulative histogram of a grayscale image
     a,b = np.shape(img)
     total = a*b
     y=[0]*256
@@ -39,7 +39,7 @@ cv2.imshow('init',image)
 
 
 
-"""LAB method"""
+"""LAB space equalization"""
 lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
 l,a,b = cv2.split(lab_image)
 
@@ -61,7 +61,7 @@ final_image = cv2.cvtColor(updated_lab_image2, cv2.COLOR_LAB2BGR)
 cv2.imshow('LABfinal',final_image) # displays image after clahe algorithm
 cv2.imwrite("LAB_equa_1.jpg",final_image)
 
-"""HSV method"""
+"""HSV space equalization"""
 hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 h,s,v = cv2.split(hsv_image)
 
@@ -82,7 +82,7 @@ updated_hsv_image2 = cv2.merge((h,s,clahe_image))
 final_image = cv2.cvtColor(updated_hsv_image2, cv2.COLOR_HSV2BGR)
 cv2.imshow('HSVfinal',final_image) # displays image after clahe algorithm
 
-"""YUV method"""
+"""YUV space equalization"""
 yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
 y,u,v = cv2.split(yuv_image)
 
