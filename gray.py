@@ -1,5 +1,3 @@
-import numpy as np
-import matplotlib.image as mat
 import matplotlib.pyplot as plt
 import cv2
 
