@@ -1,0 +1,127 @@
+import cv2
+import numpy as np
+from PIL import Image, ImageFilter
+import os
+import pandas as pd
+import glob 
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import joblib
+
+# Fonction pour extraire les caractéristiques d'une image
+def extract_features(image):
+    blurred_image = cv2.GaussianBlur(image, (5, 5), 0)
+    edges = cv2.Canny(blurred_image, 50, 150)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if len(contours) > 0:
+        contour = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(contour)
+        perimeter = cv2.arcLength(contour, True)
+        circularity = 4 * np.pi * area / (perimeter ** 2)
+    else:
+        area = 0
+        perimeter = 0
+        circularity = 0
+    
+    hist_b = cv2.calcHist([image], [0], None, [25], [0, 25])
+    hist_g = cv2.calcHist([image], [1], None, [25], [0, 25])
+    hist_r = cv2.calcHist([image], [2], None, [25], [0, 25])
+    
+    features = np.concatenate([hist_b.flatten(), hist_g.flatten(), hist_r.flatten(), [area, perimeter, circularity]])
+    
+    return features
+
+# Prétraitement des images de la base de données
+base_donnees = "C:/Users/Alexandre/OneDrive/Bureau/bddInit/*.jpg"
+# Chemin du répertoire contenant les images
+directory = "C:\\Users\\Alexandre\\OneDrive\\Bureau\\bddInit"
+
+# Récupérer la liste des fichiers dans le répertoire
+file_list = os.listdir(directory)
+
+# Filtrer les fichiers pour ne conserver que les images (extension .jpg)
+image_files = [file for file in file_list if file.lower().endswith(".jpg")]
+
+# Liste pour stocker les images prétraitées
+images = []
+
+# Parcourir la liste des fichiers d'images
+for image_file in image_files:
+    # Chemin complet de l'image
+    file_path = os.path.join(directory, image_file)
+
+    # Charger l'image d'origine
+    image = cv2.imread(file_path, 1)
+
+    # Convertir en niveaux de gris
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Calculer l'histogramme
+    def histogram_gray(img):
+        a, b = img.shape
+        total = a * b
+        y = [0] * 256
+        for i in range(len(img)):
+            for j in img[i]:
+                n = round(j)
+                y[n] += 1
+        z = [x / total for x in y]
+        z2 = [0] * 256
+        z2[0] = z[0]
+        for l in range(1, 256):
+            z2[l] = z[l] + z2[l - 1]
+
+    # Égalisation dans l'espace LAB
+    lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab_image)
+    equa = cv2.equalizeHist(l)
+    updated_lab_image = cv2.merge((equa, a, b))
+    final_image = cv2.cvtColor(updated_lab_image, cv2.COLOR_LAB2BGR)
+
+    # Enregistrer l'image finale
+    cv2.imwrite(file_path, final_image)
+
+    # Charger l'image d'origine avec PIL
+    with Image.open(file_path) as img:
+        img.load()
+
+        # Appliquer le filtre de netteté
+        sharp = img.filter(ImageFilter.SHARPEN)
+
+        # Enregistrer l'image modifiée avec le même nom de fichier
+        sharp.save(file_path)
+
+        # Charger l'image modifiée avec OpenCV
+        modified_image = cv2.imread(file_path, 1)
+        images.append(modified_image)
+
+# Charger les données de la base de données
+data = pd.read_csv("C:/Users/Alexandre/Downloads/data2019.csv", sep=';')
+mapping = dict(zip(data['isic_id'], data['benign_malignant']))
+X = []
+y = []
+
+for image_path in glob.glob(base_donnees):
+    image = cv2.imread(image_path)
+    if image is not None:
+        caracteristiques = extract_features(image)
+        identifiant_image = int(image_path.split("\\")[-1].split(".")[0])
+        mention = mapping.get(identifiant_image)
+        if mention is not None:
+            X.append(caracteristiques)
+            y.append(mention)
+        else:
+            print("Mention non trouvée pour l'image:", image_path)
+    else:
+        print("Erreur lors du chargement de l'image:", image_path)
+
+# Séparation des données d'entraînement et de test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Entraînement du modèle
+model = RandomForestClassifier()
+model.fit(X_train, y_train)
+
+# Enregistrement du modèle entraîné
+joblib.dump(model, "model.pkl")
