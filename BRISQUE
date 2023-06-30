@@ -1,0 +1,42 @@
+import torch
+import piq
+import os
+from skimage import io
+import shutil
+
+"""
+Dans ce programme on parcourt les images d'un fichier et on calcule le score BRISQUE de chacune d'entre elles.
+Ce score représente la qualité de l'image en allant de 0 à 100 (où 0 est la meilleure qualité possible). 
+Il est évalué sans référence à une autre image (NR) mais il s'agit d'un modèle pré-entrainé grâce à un dataset.
+On fixe une limite de score (ici 30) et on copiera dans un fichier tous les images qui valide ce critère.
+Ceci nous permet d'avoir une nouvelle base de donnée triée.
+"""
+
+# Ici archive est l'ensemble des images de notre base de données
+directory = 'archive'
+
+@torch.no_grad()
+def main():
+  
+    # On parcourt nos images
+
+    for filename in os.scandir(directory):
+        if filename.is_file():
+
+            # On convertit notre image en tenseur pour utiliser la fonction brisque qui prend un tenseur en entrée.
+            tensor = torch.tensor(io.imread(filename.path)).permute(2, 0, 1)
+            x = tensor[None, ...] / 255.
+
+            if torch.cuda.is_available():
+                # On laisse le calcul au GPU
+                x = x.cuda()
+
+            brisque_index: torch.Tensor = piq.brisque(x, data_range=1., reduction='none')
+
+            if brisque_index < 30:
+                print(filename)
+                shutil.copy(filename.path, r"C:\Users\Pierre Marchetti\OneDrive\Bureau\Oasis\bdd")
+                print(f"BRISQUE: {brisque_index.item():0.4f}")  
+
+if __name__ == '__main__':
+    main()
